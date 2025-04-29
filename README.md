@@ -1,134 +1,173 @@
 # ScraperTracker
 A webpage image and HTML archiver that works with google drive and google sheets.
 
-Okay, here is a README file suitable for the script. You can save this content as `README.md` in the same directory as your Python script (`main.py`) and `credentials.json`.
-
 ```markdown
-# Webpage Capture & Google Drive/Sheets Logger
+# Tracker Scraper V1.1
 
-This Python script automates the process of capturing website screenshots (as JPG images) and their HTML source code. It uploads these files to specified Google Drive folders and logs the capture details, including direct links to the uploaded files, into designated tabs within a central Google Sheet.
+## Description
 
-The script reads its job configurations directly from a 'CONFIG' tab within the specified Google Sheet, making it easy to manage multiple scraping tasks. It also automatically creates the target logging sheets (tabs) with appropriate headers if they don't already exist.
+`TrackerScraperV1.1.py` is a Python script designed to automate the process of monitoring web pages. It periodically captures screenshots (as JPG) and HTML source code of specified URLs, uploads these files to designated Google Drive folders, and logs the capture details (timestamp, Drive file links) into specific tabs within a Google Sheet.
+
+Configuration for which URLs to track, where to save the files (Drive Folder IDs), and where to log results (target Sheet Name) is dynamically read from a central Google Sheet (`CONFIG` tab). The script also automatically creates the target logging sheets (tabs) with appropriate headers if they do not already exist.
 
 ## Features
 
-* Captures webpage screenshots and saves them as JPG files.
-    * Attempts to capture the full scrollable page height (may vary based on website complexity).
-* Saves the complete HTML source code of the webpage.
-* Uploads the generated JPG and HTML files to specific Google Drive folders defined per job.
-* Logs capture timestamp, Google Drive links for the image and HTML files to a Google Sheet.
-* Reads job configurations (Target URL, Drive Folder ID, Target Sheet Name) from a `CONFIG` tab in a designated Google Sheet.
-* Automatically creates the target Google Sheet tabs (if they don't exist) and adds headers (`Capture Date`, `Image URL`, `HTML Copy`).
-* Uses Google OAuth 2.0 for secure authentication with Google Drive and Google Sheets APIs.
-* Generates timestamped filenames prefixed with the date for easy sorting (e.g., `YYYYMMDD_HHMMSS_SheetName_screenshot.jpg`).
+* **Web Page Capture:** Takes full-page screenshots (attempted via JS resize) and saves as JPG. Captures complete HTML source code.
+* **Google Drive Upload:** Uploads the captured JPG screenshot and HTML file to a specific Google Drive folder designated for each tracked URL.
+* **Google Sheets Logging:** Appends a new row for each capture to a specific sheet (tab) within a master Google Sheet. The row includes the capture timestamp and direct links to the uploaded files on Google Drive.
+* **Dynamic Configuration:** Reads job configurations (URL, Drive Folder ID, Target Sheet Name) from a `CONFIG` tab within a specified Google Sheet. No need to edit the script to add/remove jobs.
+* **Automatic Sheet Creation:** Checks if the target logging sheet (tab) exists before appending. If not, it automatically creates the sheet and adds the required header row (`Capture Date`, `Image URL`, `HTML Copy`).
+* **Date-Prefixed Filenames:** Uploaded filenames are prefixed with the capture timestamp (YYYYMMDD_HHMMSS) for easy sorting and uniqueness. Example: `20250429_113500_MySheetName_screenshot.jpg`.
+* **Authentication Handling:** Uses OAuth 2.0 for secure Google API access, storing refresh tokens in `token.json` for subsequent runs.
 
 ## Prerequisites
 
-1.  **Python:** Python 3.7 or higher installed.
-2.  **Pip:** Python package installer (usually comes with Python).
-3.  **WebDriver:**
-    * Google Chrome and [ChromeDriver](https://chromedriver.chromium.org/downloads) OR Mozilla Firefox and [GeckoDriver](https://github.com/mozilla/geckodriver/releases).
-    * The WebDriver executable must be in your system's PATH or you will need to modify the script to provide the explicit path.
-4.  **Google Account:** A standard Google account.
-5.  **Google Cloud Platform Project:** A project set up in [Google Cloud Console](https://console.cloud.google.com/).
+1.  **Python:** Python 3.7 or higher recommended.
+2.  **pip:** Python package installer (usually comes with Python).
+3.  **Google Account:** A Google account with access to Google Drive and Google Sheets.
+4.  **Google Cloud Project:**
+    * Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
+    * Enable the **Google Drive API** and **Google Sheets API** for this project.
+    * Create **OAuth 2.0 Client IDs** credentials for a **Desktop application**.
+    * Download the credentials JSON file and rename it to `credentials.json`.
+5.  **WebDriver:**
+    * Google Chrome browser installed.
+    * [ChromeDriver](https://chromedriver.chromium.org/downloads) installed and accessible in your system's PATH, or its path specified within the script (currently assumes it's in PATH). Ensure the ChromeDriver version matches your Google Chrome browser version.
+6.  **Git (Optional):** For cloning the repository if applicable.
 
-## Required Python Libraries
+## Installation & Setup
 
-Install the necessary libraries using pip:
+1.  **Get the Script:** Clone the repository or download `TrackerScraperV1.1.py`.
+2.  **Place Credentials:** Put the downloaded `credentials.json` file in the same directory as the script.
+3.  **Install Libraries:** Open your terminal or command prompt, navigate to the script's directory, and install the required Python packages:
+    ```bash
+    pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib Pillow selenium requests
+    ```
+    *(Alternatively, if a `requirements.txt` file is provided: `pip install -r requirements.txt`)*
+4.  **Set up Google Sheet:**
+    * Create a new Google Sheet or use an existing one. Note its **Spreadsheet ID** (from the URL: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`).
+    * Make sure the `CONFIG_SPREADSHEET_ID` variable near the top of the `TrackerScraperV1.1.py` script is set to this correct ID.
+    * Create a tab within this spreadsheet named exactly `CONFIG`.
+    * Set up the `CONFIG` tab as described in the Configuration section below.
 
+## Configuration (Google Sheet `CONFIG` Tab)
+
+The script reads its job configurations from a tab named `CONFIG` within the Google Sheet specified by `CONFIG_SPREADSHEET_ID` in the script.
+
+* **Location:** The data must start in cell `A1`.
+* **Row 1:** Must contain the exact headers: `url`, `folder_id`, `sheet_name`.
+* **Row 2 onwards:** Each row represents one scraping job.
+
+**Columns:**
+
+* **`url` (Column A):** The full URL of the web page to capture.
+* **`folder_id` (Column B):** The Google Drive Folder ID where the screenshot and HTML file for this URL should be uploaded. You can find this ID in the URL when viewing the folder on Google Drive (`https://drive.google.com/drive/folders/FOLDER_ID`). Ensure the authenticated user has **Edit** access to this folder.
+* **`sheet_name` (Column C):** The exact name of the target sheet (tab) within the *same spreadsheet* where the log entry (Timestamp, Image Link, HTML Link) for this URL should be appended. If a sheet with this name doesn't exist, the script will create it and add headers.
+
+**Example `CONFIG` Tab Structure:**
+
+| url                                             | folder_id                         | sheet_name              |
+| :---------------------------------------------- | :-------------------------------- | :---------------------- |
+| `https://www.amazon.com/s?k=magnetic+balls`     | `1kTfMRoGjvBHsIaasdfCtJBr0g6e0Ws` | `Amazon-magnetic-balls` |
+| `https://www.amazon.com/s?k=magneballs`         | `1kTfMRoGjvBHsIaasdfCtJBr0g6e0Ws` | `Amazon-magneballs`     |
+| `https://www.ebay.com/sch/i.html?_nkw=magnetic` | `1ABCDefGjBHsIaJJ4SJzhCtJBr0gZwd` | `Ebay-magnetic-general` |
+| `https://www.mysite.com/product`                | `1ABCDefGjBHsIaJJ4SJzhCtJBr0gZwd` | `MySite-ProductPage`    |
+| ...                                             | ...                               | ...                     |
+
+*(Ensure the values in your sheet match your actual URLs, Folder IDs, and desired Sheet Names exactly)*
+
+## Usage
+
+1.  Navigate to the script's directory in your terminal.
+2.  Run the script using Python:
+    ```bash
+    python TrackerScraperV1.1.py
+    ```
+3.  **First Run Authentication:** The first time you run the script (or after deleting `token.json`), it will:
+    * Print instructions to the console.
+    * Open a web browser window, prompting you to log in to your Google Account.
+    * Ask you to grant permission for the script to access Google Drive and Google Sheets.
+    * **Important:** Ensure you authenticate with the Google Account that has the necessary permissions for the specified Drive folders and the configuration/target Google Sheet.
+    * After successful authentication, it will create a `token.json` file in the script's directory. This file stores the authorization token so you don't have to re-authenticate every time. **Keep `token.json` secure!**
+4.  **Subsequent Runs:** The script will use the `token.json` file to authenticate automatically. It will:
+    * Read jobs from the `CONFIG` sheet.
+    * Process each job:
+        * Capture screenshot/HTML.
+        * Upload files to the specified Drive folder.
+        * Ensure the target sheet exists and has headers.
+        * Append the log entry to the target sheet.
+    * Print progress and status messages to the console.
+
+## Scheduling with Cron (Daily Execution)
+
+To run the script automatically (e.g., daily), you can use `cron`, a time-based job scheduler available on Unix-like operating systems (Linux, macOS).
+
+**1. What is Cron?**
+Cron allows you to schedule commands or scripts to run periodically at specific times and dates.
+
+**2. Editing the Crontab:**
+You edit your user's cron schedule (crontab) using the command:
 ```bash
-pip install selenium google-api-python-client google-auth-oauthlib google-auth-httplib2 Pillow
+crontab -e
+```
+This will open your crontab file in your default text editor (like `nano` or `vim`).
+
+**3. Cron Job Format:**
+Each line in the crontab represents a job and follows this format:
+```
+# ┌───────────── minute (0 - 59)
+# │ ┌───────────── hour (0 - 23)
+# │ │ ┌───────────── day of month (1 - 31)
+# │ │ │ ┌───────────── month (1 - 12)
+# │ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday; 7 is also Sunday on some systems)
+# │ │ │ │ │
+# │ │ │ │ │
+# * * * * * /path/to/command/to/execute
+```
+An asterisk (`*`) means "every". For example, `0 3 * * *` means "at 3:00 AM every day".
+
+**4. Important Considerations for Cron Jobs:**
+
+* **Absolute Paths:** Cron jobs often run with a minimal environment and may not know the `PATH` to your Python interpreter or the script. Always use **absolute paths**. Find your Python interpreter's path (`which python` or `which python3`) and the full path to your script.
+* **Working Directory:** Cron jobs usually start in the user's home directory. Your script likely depends on finding `credentials.json` and `token.json` in its *own* directory, and it creates `temp_web_captures` there too. The safest way to handle this is to `cd` into the script's directory before running it.
+* **Logging Output:** Cron jobs run in the background. To see output or errors, redirect standard output (`stdout`) and standard error (`stderr`) to a log file. `> /path/to/logfile.log 2>&1` appends both stdout and stderr to the specified file.
+* **Virtual Environments:** If you installed the Python libraries in a virtual environment (recommended), you MUST use the path to the Python interpreter *inside* that environment (e.g., `/path/to/project/.venv/bin/python`).
+
+**5. Example Cron Job (Daily at 3:00 AM):**
+
+Let's assume:
+* Your script is located at `/home/user/projects/TrackerScraper/TrackerScraperV1.1.py`.
+* Your Python 3 interpreter (possibly in a virtualenv) is at `/home/user/projects/TrackerScraper/.venv/bin/python`.
+* You want to log output to `/home/user/projects/TrackerScraper/scraper.log`.
+
+Add the following line to your crontab using `crontab -e`:
+
+```crontab
+0 3 * * * cd /home/user/projects/TrackerScraper && /home/user/projects/TrackerScraper/.venv/bin/python /home/user/projects/TrackerScraper/TrackerScraperV1.1.py > /home/user/projects/TrackerScraper/scraper.log 2>&1
 ```
 
-## Setup Instructions
+**Explanation of the example:**
 
-### 1. Google Cloud API Credentials
+* `0 3 * * *`: Run at 3:00 AM every day.
+* `cd /home/user/projects/TrackerScraper`: **Change directory** to where the script and credential files are located.
+* `&&`: Run the next command only if the `cd` was successful.
+* `/home/user/projects/TrackerScraper/.venv/bin/python`: Execute using the Python interpreter **from the virtual environment** (adjust path if not using venv or if it's elsewhere).
+* `/home/user/projects/TrackerScraper/TrackerScraperV1.1.py`: The absolute path to the script.
+* `> /home/user/projects/TrackerScraper/scraper.log 2>&1`: Redirect standard output and standard error to the log file. Check this file if the script doesn't seem to run correctly via cron.
 
-1.  **Create/Select Project:** Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project or select an existing one.
-2.  **Enable APIs:**
-    * Navigate to "APIs & Services" > "Library".
-    * Search for and enable the **Google Drive API**.
-    * Search for and enable the **Google Sheets API**.
-3.  **Create OAuth Credentials:**
-    * Go to "APIs & Services" > "Credentials".
-    * Click "+ CREATE CREDENTIALS" > "OAuth client ID".
-    * If prompted, configure the "OAuth consent screen". Choose "External" user type for testing/personal use, provide an app name (e.g., "Web Scraper Logger"), your email address for user support and developer contact. Add your Google account email address as a Test User on the "Test users" step. Save and continue.
-    * Select "Desktop app" as the Application type.
-    * Give the client ID a name (e.g., "Web Scraper Desktop Client").
-    * Click "Create".
-4.  **Download Credentials:**
-    * A pop-up will show your Client ID and Client Secret. Click the "DOWNLOAD JSON" button.
-    * Rename the downloaded file to `credentials.json`.
-    * Place this `credentials.json` file in the **same directory** as the Python script (`main.py`). **Keep this file secure!**
+Save the crontab file after adding the line. Cron will automatically pick up the schedule.
 
-### 2. Google Sheet Setup
+## Troubleshooting
 
-1.  **Create Spreadsheet:** Create a new Google Sheet or use an existing one. This sheet will hold both the configuration and the output logs.
-2.  **Note Spreadsheet ID:** Open the spreadsheet. The URL will look like `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`. Copy the `SPREADSHEET_ID` part.
-3.  **Set Fixed ID in Script:** Ensure the `CONFIG_SPREADSHEET_ID` variable near the top of the Python script (`main.py`) is set to this ID:
-    ```python
-    CONFIG_SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'
-    ```
-4.  **Create `CONFIG` Tab:**
-    * Create a new sheet/tab within your spreadsheet and name it **exactly** `CONFIG`.
-    * Set up the following columns starting in cell `A1`:
-        * `A1`: `url`
-        * `B1`: `folder_id`
-        * `C1`: `sheet_name`
-    * Starting from row 2, list your scraping jobs:
-        * **Column A (url):** The full URL of the webpage to capture.
-        * **Column B (folder_id):** The ID of the Google Drive folder where files for this URL should be uploaded. (Get the ID from the folder's URL: `https://drive.google.com/drive/folders/FOLDER_ID`).
-        * **Column C (sheet_name):** The exact name of the target sheet/tab within *this same spreadsheet* where the logs for this URL should be appended. The script will create this sheet if it doesn't exist.
+* **Authentication Errors (`token.json` issues):** Delete `token.json` and re-run the script manually to re-authenticate. Ensure you grant permissions for both Drive and Sheets.
+* **`credentials.json` not found:** Make sure the file is named exactly `credentials.json` and is in the same directory as the script.
+* **Sheet/Folder Not Found (404 Errors):** Double-check the `SPREADSHEET_ID`, `CONFIG_SHEET_NAME`, `folder_id` values, and target `sheet_name` values for typos. Ensure they exist and the authenticated user has the correct permissions (View for config sheet, Edit for target sheets and Drive folders).
+* **Permission Denied (403 Errors):** Verify the authenticated Google account has necessary permissions (View/Edit) for the specified Google Sheet and Drive Folders.
+* **Cron Job Not Running:** Check the cron log file specified in your cron command for errors. Verify absolute paths and directory changes (`cd`). Ensure the cron daemon is running (`sudo systemctl status cron` or similar). Check system mail (`mail` command) for cron errors if logging wasn't set up.
+* **Selenium/WebDriver Errors:** Ensure ChromeDriver is installed, its version matches Chrome, and it's in the system PATH or configured correctly. Headless mode can sometimes behave differently; test manually without headless if needed. Some websites might block automated access.
 
-### 3. Google Drive Folders
+## License (Optional)
 
-* Ensure that the Google Drive folders specified by the `folder_id` values in your `CONFIG` sheet exist.
-* Verify that the Google account you will authenticate the script with has **Edit** or **Contributor** access to these folders.
+(Specify your license here, e.g., MIT License, Apache 2.0, or leave blank)
 
-## Running the Script
-
-1.  **Navigate:** Open a terminal or command prompt and navigate to the directory containing `main.py` and `credentials.json`.
-2.  **Execute:** Run the script using Python:
-    ```bash
-    python main.py
-    ```
-3.  **First-Run Authentication:**
-    * The first time you run the script (or after deleting `token.json`), a message will appear indicating that authentication is required.
-    * Your web browser should automatically open to a Google authentication page.
-    * Log in with the Google account that has access to the configured Google Sheet and Drive folders.
-    * Review the permissions requested (access to Drive files, access to Sheets) and click "Allow" or "Continue".
-    * You might see a warning about the app not being verified by Google if you chose "External" user type during consent screen setup – proceed if you trust the script (click "Advanced" > "Go to [Your App Name] (unsafe)").
-    * Once authorized, the browser might show a success message, and you can close it.
-    * The script will create a `token.json` file in the same directory. This file stores your authorization tokens so you don't have to log in every time. **Do not share `token.json`.**
-4.  **Subsequent Runs:** The script will use the `token.json` file to authenticate automatically.
-5.  **Re-authentication:** If you change the `SCOPES` in the script, encounter persistent authentication errors, or revoke access via your Google Account settings, delete `token.json` and run the script again to re-authorize.
-
-### Scheduling Daily Runs
-
-The script runs once when executed. To run it automatically every day, use your operating system's task scheduler:
-
-* **Linux/macOS:** Use `cron`. Edit your crontab (`crontab -e`) and add a line like:
-    ```cron
-    0 8 * * * /usr/bin/python3 /path/to/your/script/main.py >> /path/to/your/script/cron.log 2>&1
-    ```
-    (This example runs the script at 8:00 AM daily. Adjust the time and paths accordingly. Redirecting output `>> cron.log 2>&1` is recommended for logging.)
-* **Windows:** Use Task Scheduler. Create a new task that triggers daily and runs the Python executable with the script path as an argument.
-
-## Output
-
-* **Google Drive:** For each processed job, a JPG screenshot and an HTML file will be uploaded to the corresponding Google Drive folder specified in the `CONFIG` sheet. Filenames will be in the format `YYYYMMDD_HHMMSS_SheetName_Type.ext`.
-* **Google Sheets:** For each processed job, a new row will be appended to the target sheet (specified by `sheet_name` in the `CONFIG` sheet).
-    * If the target sheet doesn't exist, it will be created automatically.
-    * If the sheet is new or empty, headers (`Capture Date`, `Image URL`, `HTML Copy`) will be added to the first row.
-    * The appended row will contain:
-        * Column A: Timestamp of the capture (e.g., `2025-04-29 11:30:00`).
-        * Column B: A clickable link to the uploaded JPG file in Google Drive (or an error status).
-        * Column C: A clickable link to the uploaded HTML file in Google Drive (or an error status).
-
-## Troubleshooting / Notes
-
-* **Sheet Access Errors (404/403):** Double-check that the `CONFIG_SPREADSHEET_ID` is correct, the target `sheet_name` in the `CONFIG` tab exactly matches the actual tab name (case-sensitive), and the authenticated user has **Edit** permissions for the Google Sheet.
-* **Drive Upload Errors (404/403):** Verify the `folder_id` in the `CONFIG` tab is correct and that the authenticated user has **Edit** or **Contributor** access to that Google Drive folder.
-* **Full-Page Screenshots:** The script attempts to capture the full page height by resizing the browser window based on JavaScript calculations. This may not work perfectly on all websites, especially those with infinite scroll, dynamic content loading, or complex CSS layouts. The resulting screenshot might be cut off or have rendering issues on such pages. A maximum height limit is also imposed to prevent excessive memory usage.
-* **Authentication:** Ensure `credentials.json` is present and valid. Delete `token.json` if you encounter persistent auth errors or change API scopes.
 ```

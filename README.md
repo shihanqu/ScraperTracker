@@ -166,8 +166,5 @@ Save the crontab file after adding the line. Cron will automatically pick up the
 * **Cron Job Not Running:** Check the cron log file specified in your cron command for errors. Verify absolute paths and directory changes (`cd`). Ensure the cron daemon is running (`sudo systemctl status cron` or similar). Check system mail (`mail` command) for cron errors if logging wasn't set up.
 * **Selenium/WebDriver Errors:** Ensure ChromeDriver is installed, its version matches Chrome, and it's in the system PATH or configured correctly. Headless mode can sometimes behave differently; test manually without headless if needed. Some websites might block automated access.
 
-## License (Optional)
-
-(Specify your license here, e.g., MIT License, Apache 2.0, or leave blank)
 
 ```
